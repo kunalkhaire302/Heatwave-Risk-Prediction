@@ -1044,7 +1044,7 @@ async function sendAlert(type, btnBtn = null){
   if(btn){ btn.innerHTML = '<span class="spin"></span> Sending...'; btn.disabled = true; }
 
   try {
-    const endpoint = type === 'email' ? 'http://localhost:3000/api/alert/email' : 'http://localhost:3000/api/alert/sms';
+    const endpoint = type === 'email' ? '/api/alert/email' : '/api/alert/sms';
     const payload = type === 'email' 
       ? { to: dest, subject: `HeatShield AI Alert: ${lastResult.label} Risk`, text: `Risk Level: ${lastResult.label}\nScore: ${lastResult.total}/12\n\nAdvisory: ${advisories[lastResult.label].replace(/<[^>]*>?/gm, '')}` }
       : { to: dest, body: `HeatShield Alert: ${lastResult.label} Risk. Score: ${lastResult.total}/12.` };
