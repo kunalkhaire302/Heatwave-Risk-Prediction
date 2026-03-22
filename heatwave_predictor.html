@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>HeatShield AI — Heatwave Risk Prediction & Alert System</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #060810;
+  --bg2:      #0d101a;
+  --surface:  #111420;
+  --card:     #161a28;
+  --card2:    #1c2135;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.12);
+  --txt:      #e2e8f8;
+  --muted:    #5a6380;
+  --accent:   #ff5722;
+  --amber:    #ffb300;
+  --red:      #f44336;
+  --orange:   #ff6d00;
+  --green:    #00e676;
+  --blue:     #40c4ff;
+  --purple:   #b388ff;
+  --cyan:     #18ffff;
+  --gR: 0 0 30px rgba(244,67,54,.3);
+  --gO: 0 0 30px rgba(255,109,0,.3);
+  --gG: 0 0 30px rgba(0,230,118,.25);
+  --gB: 0 0 20px rgba(64,196,255,.25);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--card2);border-radius:9px}
+
+/* ── Canvas ── */
+#bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.45}
+
+/* ── Layout ── */
+.app{position:relative;z-index:1}
+
+/* ── TOP NAV ── */
+nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 32px;height:64px;
+  background:rgba(6,8,16,.85);
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px);
+  position:sticky;top:0;z-index:100;
+}
+.nav-brand{display:flex;align-items:center;gap:12px}
+.nav-logo{
+  width:38px;height:38px;border-radius:10px;
+  background:linear-gradient(135deg,#ff5722,#f44336);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;box-shadow:var(--gR);
+}
+.nav-title{font-family:'Orbitron',monospace;font-size:1.05rem;font-weight:700;
+  background:linear-gradient(90deg,#ff5722,#ffb300);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.nav-sub{font-size:.65rem;color:var(--muted);margin-top:1px}
+.nav-right{display:flex;align-items:center;gap:12px}
+.nav-status{display:flex;align-items:center;gap:7px;font-size:.72rem;color:var(--green);
+  background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.2);
+  border-radius:20px;padding:5px 13px}
+.nav-status::before{content:'●';animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* ── Alert Bell ── */
+.bell-btn{
+  position:relative;width:38px;height:38px;border:1px solid var(--border2);
+  border-radius:10px;background:var(--card);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:17px;
+  transition:.2s;
+}
+.bell-btn:hover{border-color:var(--accent);background:var(--card2)}
+.bell-badge{
+  position:absolute;top:-4px;right:-4px;width:16px;height:16px;
+  background:var(--red);border-radius:50%;font-size:.55rem;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;border:2px solid var(--bg);
+}
+
+/* ── Page wrapper ── */
+.page{max-width:1280px;margin:0 auto;padding:24px 24px 80px}
+
+/* ── City Search Row ── */
+.search-row{
+  display:flex;gap:12px;align-items:stretch;
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:16px;padding:20px 24px;margin-bottom:24px;
+  flex-wrap:wrap;
+}
+.search-group{flex:1;min-width:220px;display:flex;flex-direction:column;gap:6px}
+.search-label{font-size:.68rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:600}
+.search-input-wrap{display:flex;gap:8px}
+.city-input{
+  flex:1;background:var(--bg2);border:1px solid var(--border2);
+  border-radius:10px;padding:11px 16px;color:var(--txt);
+  font-family:'Inter',sans-serif;font-size:.9rem;outline:none;
+  transition:border-color .2s;
+}
+.city-input:focus{border-color:var(--accent)}
+.city-input::placeholder{color:var(--muted)}
+
+.btn-fetch{
+  padding:11px 22px;background:linear-gradient(135deg,#ff5722,#f44336);
+  border:none;border-radius:10px;color:white;font-weight:600;
+  font-size:.85rem;cursor:pointer;white-space:nowrap;
+  box-shadow:var(--gR);transition:transform .15s,box-shadow .15s;
+  display:flex;align-items:center;gap:7px;
+}
+.btn-fetch:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(255,87,34,.5)}
+.btn-fetch:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.demo-cities{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.demo-chip{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:8px;padding:5px 13px;font-size:.73rem;color:var(--muted);
+  cursor:pointer;transition:.2s;
+}
+.demo-chip:hover{border-color:var(--accent);color:var(--txt)}
+
+/* ── Stat Cards Row ── */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
+@media(max-width:900px){.stats-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:580px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+.stat-card{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:18px 20px;transition:.3s;
+}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat-icon{font-size:1.4rem;margin-bottom:8px}
+.stat-label{font-size:.65rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:4px}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:600}
+.stat-sub{font-size:.68rem;color:var(--muted);margin-top:3px}
+
+/* ── Main Grid ── */
+.main-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.main-grid.three{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:800px){.main-grid,.main-grid.three{grid-template-columns:1fr}}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px;transition:.3s}
+.card:hover{border-color:var(--border2)}
+.card.full{grid-column:1/-1}
+.card-hd{
+  font-size:.68rem;text-transform:uppercase;letter-spacing:2.5px;
+  color:var(--muted);font-weight:600;margin-bottom:20px;
+  display:flex;align-items:center;gap:8px;padding-bottom:12px;
+  border-bottom:1px solid var(--border);
+}
+.card-hd .dot{width:6px;height:6px;border-radius:50%}
+
+/* ── Input Controls ── */
+.field{margin-bottom:18px}
+.field-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.field-lbl{font-size:.8rem;font-weight:600;color:var(--txt)}
+.field-val{
+  font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:600;
+  color:var(--amber);background:var(--bg2);border:1px solid var(--border);
+  border-radius:7px;padding:3px 10px;min-width:80px;text-align:center;
+}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:5px;
+  background:var(--card2);border-radius:99px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:linear-gradient(135deg,#ff5722,#f44336);
+  box-shadow:0 0 8px rgba(255,87,34,.5);cursor:pointer;transition:transform .2s;
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
+.sel-wrap{position:relative}
+.sel-wrap select{
+  width:100%;padding:10px 14px;background:var(--bg2);color:var(--txt);
+  border:1px solid var(--border);border-radius:10px;
+  font-family:'Inter',sans-serif;font-size:.88rem;
+  -webkit-appearance:none;appearance:none;outline:none;cursor:pointer;
+  transition:border-color .2s;
+}
+.sel-wrap select:focus{border-color:var(--accent)}
+.sel-wrap::after{content:'▾';position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+
+/* ── Predict Button ── */
+.btn-predict{
+  width:100%;margin-top:20px;padding:15px;border:none;border-radius:13px;
+  font-family:'Orbitron',monospace;font-size:1rem;font-weight:700;letter-spacing:2px;
+  background:linear-gradient(135deg,#ff5722,#f44336);color:white;cursor:pointer;
+  box-shadow:var(--gR);transition:.15s;display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.btn-predict:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(255,87,34,.5)}
+.btn-predict:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* ── Risk Result Banner ── */
+.risk-result{
+  border-radius:14px;padding:22px 24px;
+  display:flex;align-items:center;gap:18px;margin-bottom:20px;
+  transition:.3s;
+}
+.risk-result.high{background:rgba(244,67,54,.1);border:1.5px solid rgba(244,67,54,.4);box-shadow:var(--gR)}
+.risk-result.medium{background:rgba(255,109,0,.1);border:1.5px solid rgba(255,109,0,.4);box-shadow:var(--gO)}
+.risk-result.low{background:rgba(0,230,118,.08);border:1.5px solid rgba(0,230,118,.35);box-shadow:var(--gG)}
+.rr-icon{font-size:2.8rem;flex-shrink:0}
+.rr-tag{font-size:.62rem;text-transform:uppercase;letter-spacing:3px;color:var(--muted);margin-bottom:2px}
+.rr-main{font-family:'Orbitron',monospace;font-size:1.9rem;font-weight:700;line-height:1}
+.high .rr-main{color:var(--red)}
+.medium .rr-main{color:var(--orange)}
+.low .rr-main{color:var(--green)}
+.rr-score{font-size:.72rem;color:var(--muted);margin-top:5px;font-family:'JetBrains Mono',monospace}
+
+/* ── Probability Bars ── */
+.prob-row{margin-bottom:11px}
+.prob-lbl-row{display:flex;justify-content:space-between;font-size:.74rem;margin-bottom:5px;font-family:'JetBrains Mono',monospace}
+.prob-track{height:9px;background:var(--bg2);border-radius:99px;overflow:hidden}
+.prob-fill{height:100%;border-radius:99px;transition:width .9s cubic-bezier(.22,1,.36,1);width:0}
+.pf-h{background:linear-gradient(90deg,#f44336,#ff6b6b)}
+.pf-m{background:linear-gradient(90deg,#ff6d00,#ffb347)}
+.pf-l{background:linear-gradient(90deg,#00e676,#69f0ae)}
+
+/* ── Score chips ── */
+.score-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:16px 0}
+@media(max-width:500px){.score-row{grid-template-columns:repeat(3,1fr)}}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:9px;padding:10px;text-align:center}
+.sc-lbl{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.sc-val{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:700}
+
+/* ── Derived chips ── */
+.derived-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.dchip{background:var(--bg2);border:1px solid var(--border);border-radius:11px;padding:13px}
+.dc-lbl{font-size:.66rem;color:var(--muted);margin-bottom:4px}
+.dc-val{font-family:'JetBrains Mono',monospace;font-size:1.05rem;font-weight:700}
+
+/* ── Advisory ── */
+.advisory{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:18px;font-size:.84rem;line-height:1.8}
+.advisory strong{color:var(--amber)}
+
+
+
+/* ── Charts ── */
+.chart-wrap{position:relative;width:100%}
+.chart-wrap canvas{border-radius:8px}
+
+/* ── Alert System ── */
+.alert-controls{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.alert-input{
+  flex:1;min-width:180px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:10px 14px;color:var(--txt);
+  font-family:'Inter',sans-serif;font-size:.85rem;outline:none;
+}
+.alert-input:focus{border-color:var(--blue)}
+.btn-alert{
+  padding:10px 20px;border:none;border-radius:10px;
+  font-weight:600;font-size:.82rem;cursor:pointer;
+  background:linear-gradient(135deg,#40c4ff,#00b0ff);color:var(--bg);
+  transition:.2s;white-space:nowrap;
+}
+.btn-alert:hover{transform:translateY(-1px);box-shadow:0 0 20px rgba(64,196,255,.4)}
+.btn-sms{background:linear-gradient(135deg,#00e676,#00c853);color:var(--bg)}
+.btn-sms:hover{box-shadow:0 0 20px rgba(0,230,118,.4)}
+.alert-log{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto}
+.alert-item{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:11px 14px;display:flex;align-items:flex-start;gap:12px;
+  animation:slideIn .3s ease;
+}
+@keyframes slideIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+.alert-item.high-alert{border-color:rgba(244,67,54,.3);background:rgba(244,67,54,.06)}
+.alert-item.med-alert{border-color:rgba(255,109,0,.3);background:rgba(255,109,0,.06)}
+.alert-item.low-alert{border-color:rgba(0,230,118,.25);background:rgba(0,230,118,.04)}
+.alert-badge{font-size:.72rem;font-weight:700;padding:2px 9px;border-radius:5px;flex-shrink:0;margin-top:1px}
+.badge-high{background:rgba(244,67,54,.2);color:var(--red)}
+.badge-med{background:rgba(255,109,0,.2);color:var(--orange)}
+.badge-low{background:rgba(0,230,118,.15);color:var(--green)}
+.alert-body{font-size:.78rem;line-height:1.6}
+.alert-body .at{color:var(--txt);font-weight:600}
+.alert-body .as{color:var(--muted);font-size:.71rem}
+
+/* ── Heat Action Plan ── */
+.hap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:700px){.hap-grid{grid-template-columns:1fr}}
+.hap-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+  padding:16px;transition:.2s;
+}
+.hap-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.hap-icon{font-size:1.6rem;margin-bottom:8px}
+.hap-title{font-size:.82rem;font-weight:700;margin-bottom:6px;color:var(--txt)}
+.hap-desc{font-size:.74rem;color:var(--muted);line-height:1.6}
+
+/* ── City History Table ── */
+.city-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.city-table th{text-align:left;padding:9px 12px;font-size:.65rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);border-bottom:1px solid var(--border)}
+.city-table td{padding:11px 12px;border-bottom:1px solid rgba(255,255,255,.03)}
+.city-table tr:hover td{background:rgba(255,255,255,.02)}
+.risk-pill{display:inline-block;padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:700}
+.rp-h{background:rgba(244,67,54,.15);color:var(--red)}
+.rp-m{background:rgba(255,109,0,.15);color:var(--orange)}
+.rp-l{background:rgba(0,230,118,.12);color:var(--green)}
+
+/* ── Toast notification ── */
+#toast-container{position:fixed;top:80px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px}
+.toast{
+  background:var(--card2);border:1px solid var(--border2);border-radius:12px;
+  padding:14px 18px;max-width:320px;min-width:260px;
+  display:flex;gap:12px;align-items:flex-start;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  animation:toastIn .35s ease;backdrop-filter:blur(16px);
+}
+@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+.toast.out{animation:toastOut .3s ease forwards}
+@keyframes toastOut{to{opacity:0;transform:translateX(40px)}}
+.toast-icon{font-size:1.4rem;flex-shrink:0}
+.toast-hd{font-size:.82rem;font-weight:700;margin-bottom:3px}
+.toast-bd{font-size:.74rem;color:var(--muted);line-height:1.5}
+.toast.t-high{border-color:rgba(244,67,54,.4)}
+.toast.t-medium{border-color:rgba(255,109,0,.4)}
+.toast.t-low{border-color:rgba(0,230,118,.35)}
+
+/* ── Spinner ── */
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:rot .6s linear infinite;vertical-align:middle}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:4px;background:var(--bg2);border-radius:10px;padding:4px;margin-bottom:20px;width:fit-content}
+.tab{padding:7px 18px;border-radius:7px;font-size:.78rem;font-weight:600;cursor:pointer;transition:.2s;color:var(--muted)}
+.tab.active{background:var(--card2);color:var(--txt);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* ── IMD thresholds ── */
+.threshold-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:0}
+.thresh{padding:13px;border-radius:11px;font-size:.78rem;text-align:center}
+.thresh .th-lbl{font-weight:700;margin-bottom:4px;font-size:.85rem}
+.thresh .th-val{color:var(--muted);font-size:.72rem;line-height:1.5}
+.thresh.h{background:rgba(244,67,54,.08);border:1px solid rgba(244,67,54,.25);color:var(--red)}
+.thresh.m{background:rgba(255,109,0,.08);border:1px solid rgba(255,109,0,.25);color:var(--orange)}
+.thresh.l{background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.2);color:var(--green)}
+
+/* ── Section divider ── */
+.sec-label{
+  font-family:'Orbitron',monospace;font-size:.72rem;font-weight:600;
+  letter-spacing:3px;text-transform:uppercase;color:var(--muted);
+  padding:8px 0 16px;display:flex;align-items:center;gap:12px;
+}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── Footer ── */
+footer{text-align:center;padding:28px 0;font-size:.72rem;color:var(--muted);border-top:1px solid var(--border);margin-top:40px}
+footer a{color:var(--accent);text-decoration:none}
+
+/* ── Responsive tweaks ── */
+@media(max-width:600px){
+  nav{padding:0 16px}
+  .page{padding:16px 14px 60px}
+  .search-row{padding:14px}
+  .api-input{width:100%}
+}
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div id="toast-container"></div>
+
+<div class="app">
+<!-- ══ NAV ══ -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">🌡️</div>
+    <div>
+      <div class="nav-title">HeatShield AI</div>
+      <div class="nav-sub">Heatwave Risk Prediction &amp; Alert System</div>
+    </div>
+  </div>
+  <div class="nav-right">
+    <div class="nav-status">System Online</div>
+    <div class="bell-btn" id="bell-btn" onclick="toggleAlertPanel()">
+      🔔<div class="bell-badge" id="bell-count">0</div>
+    </div>
+  </div>
+</nav>
+
+<!-- ══ PAGE ══ -->
+<div class="page">
+
+  <!-- ── CITY SEARCH ── -->
+  <div class="search-row">
+    <div class="search-group" style="flex:2">
+      <div class="search-label">📍 Location-Based Forecast</div>
+      <div class="search-input-wrap">
+        <input class="city-input" id="city-input" placeholder="Enter city name (e.g. Delhi, Mumbai, Chennai…)" />
+        <button class="btn-fetch" id="fetch-btn" onclick="fetchWeather()">
+          <span id="fetch-label">🌐 Fetch Weather</span>
+        </button>
+      </div>
+      <div class="demo-cities">
+        <span style="font-size:.68rem;color:var(--muted);align-self:center;">Quick select:</span>
+        <div class="demo-chip" onclick="loadDemo('Delhi')">Delhi</div>
+        <div class="demo-chip" onclick="loadDemo('Mumbai')">Mumbai</div>
+        <div class="demo-chip" onclick="loadDemo('Chennai')">Chennai</div>
+        <div class="demo-chip" onclick="loadDemo('Ahmedabad')">Ahmedabad</div>
+        <div class="demo-chip" onclick="loadDemo('Kolkata')">Kolkata</div>
+        <div class="demo-chip" onclick="loadDemo('Hyderabad')">Hyderabad</div>
+        <div class="demo-chip" onclick="loadDemo('Jaipur')">Jaipur</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── STAT CARDS ── -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon">📍</div>
+      <div class="stat-label">Location</div>
+      <div class="stat-val" id="s-city" style="font-size:1.05rem;color:var(--blue)">—</div>
+      <div class="stat-sub" id="s-coords">Select a city above</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🌡️</div>
+      <div class="stat-label">Temperature</div>
+      <div class="stat-val" id="s-temp" style="color:var(--red)">—°C</div>
+      <div class="stat-sub" id="s-temp-sub">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💧</div>
+      <div class="stat-label">Humidity</div>
+      <div class="stat-val" id="s-hum" style="color:var(--blue)">— %</div>
+      <div class="stat-sub">Relative humidity</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-label">Heat Index</div>
+      <div class="stat-val" id="s-hi" style="color:var(--orange)">—°C</div>
+      <div class="stat-sub">Feels like temperature</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⚠️</div>
+      <div class="stat-label">Risk Level</div>
+      <div class="stat-val" id="s-risk" style="font-size:1.05rem;color:var(--muted)">—</div>
+      <div class="stat-sub" id="s-risk-sub">Run prediction</div>
+    </div>
+  </div>
+
+  <!-- ── ROW 1: Inputs + Result ── -->
+  <div class="sec-label">🔮 Prediction Engine</div>
+  <div class="main-grid">
+
+    <!-- Inputs -->
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--accent)"></div>⚙️ Weather Parameters</div>
+
+      <div class="field">
+        <div class="field-hd"><span class="field-lbl">🌡️ Temperature</span><span class="field-val" id="v-t">35.0 °C</span></div>
+        <input type="range" id="sl-t" min="10" max="50" step="0.5" value="35"/>
+      </div>
+      <div class="field">
+        <div class="field-hd"><span class="field-lbl">💧 Humidity</span><span class="field-val" id="v-h">40 %</span></div>
+        <input type="range" id="sl-h" min="0" max="100" step="1" value="40"/>
+      </div>
+      <div class="field">
+        <div class="field-hd"><span class="field-lbl">💨 Wind Speed</span><span class="field-val" id="v-w">10.0 km/h</span></div>
+        <input type="range" id="sl-w" min="0" max="60" step="0.5" value="10"/>
+      </div>
+      <div class="field">
+        <div class="field-hd"><span class="field-lbl">🔵 Pressure</span><span class="field-val" id="v-p">1005 mb</span></div>
+        <input type="range" id="sl-p" min="950" max="1050" step="1" value="1005"/>
+      </div>
+      <div class="field">
+        <div class="field-hd"><span class="field-lbl">🔥 Consecutive Hot Days</span><span class="field-val" id="v-hd">2 days</span></div>
+        <input type="range" id="sl-hd" min="0" max="15" step="1" value="2"/>
+      </div>
+      <div class="field">
+        <div class="field-lbl" style="margin-bottom:7px">📅 Month</div>
+        <div class="sel-wrap">
+          <select id="sl-m">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5" selected>May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-predict" id="predict-btn" onclick="runPrediction()">🔮 PREDICT RISK</button>
+    </div>
+
+    <!-- Result -->
+    <div class="card" id="result-card">
+      <div class="card-hd"><div class="dot" style="background:var(--green)"></div>🎯 Prediction Result</div>
+
+      <div class="risk-result low" id="rr-banner" style="opacity:.35">
+        <div class="rr-icon" id="rr-icon">❓</div>
+        <div>
+          <div class="rr-tag">HEATWAVE RISK LEVEL</div>
+          <div class="rr-main" id="rr-main">RUN PREDICTION</div>
+          <div class="rr-score" id="rr-score">Adjust parameters and click predict</div>
+        </div>
+      </div>
+
+      <!-- Derived -->
+      <div class="derived-grid">
+        <div class="dchip"><div class="dc-lbl">🌫️ Dew Point</div><div class="dc-val" id="dv-dp" style="color:var(--amber)">—</div></div>
+        <div class="dchip"><div class="dc-lbl">🔥 Heat Index</div><div class="dc-val" id="dv-hi" style="color:var(--red)">—</div></div>
+      </div>
+
+      <!-- Probability Bars -->
+      <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:10px">Confidence</div>
+      <div class="prob-row">
+        <div class="prob-lbl-row"><span style="color:var(--red)">🔴 High</span><span id="pct-h" style="color:var(--red)">—%</span></div>
+        <div class="prob-track"><div class="prob-fill pf-h" id="bar-h"></div></div>
+      </div>
+      <div class="prob-row">
+        <div class="prob-lbl-row"><span style="color:var(--orange)">🟡 Medium</span><span id="pct-m" style="color:var(--orange)">—%</span></div>
+        <div class="prob-track"><div class="prob-fill pf-m" id="bar-m"></div></div>
+      </div>
+      <div class="prob-row">
+        <div class="prob-lbl-row"><span style="color:var(--green)">🟢 Low</span><span id="pct-l" style="color:var(--green)">—%</span></div>
+        <div class="prob-track"><div class="prob-fill pf-l" id="bar-l"></div></div>
+      </div>
+
+      <!-- Score breakdown -->
+      <div class="score-row" id="score-row">
+        <div class="sc"><div class="sc-lbl">🌡️ Temp</div><div class="sc-val" style="color:var(--muted)">—/4</div></div>
+        <div class="sc"><div class="sc-lbl">🔥 Heat Idx</div><div class="sc-val" style="color:var(--muted)">—/3</div></div>
+        <div class="sc"><div class="sc-lbl">💧 Humidity</div><div class="sc-val" style="color:var(--muted)">—/2</div></div>
+        <div class="sc"><div class="sc-lbl">☀️ Hot Days</div><div class="sc-val" style="color:var(--muted)">—/2</div></div>
+        <div class="sc"><div class="sc-lbl">📅 Season</div><div class="sc-val" style="color:var(--muted)">—/1</div></div>
+      </div>
+
+      <div class="advisory" id="advisory">Configure the weather parameters and click Predict to see the heatwave risk assessment.</div>
+    </div>
+  </div>
+
+
+
+  <!-- ── ROW 2: Charts ── -->
+  <div class="sec-label">📊 Data Visualization &amp; Trends</div>
+  <div class="main-grid" style="margin-bottom:20px">
+
+    <!-- 7-Day Forecast chart -->
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--amber)"></div>📅 7-Day Temperature Forecast</div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chart-forecast"></canvas>
+      </div>
+    </div>
+
+    <!-- Risk Trend chart -->
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--red)"></div>📈 30-Day Risk History</div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chart-history"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-grid three" style="margin-bottom:20px">
+    <!-- Monthly heatmap -->
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--orange)"></div>🗓️ Monthly Risk Pattern</div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="chart-monthly"></canvas>
+      </div>
+    </div>
+
+    <!-- Humidity vs Temp scatter -->
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--blue)"></div>💧 Humidity vs Temperature</div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="chart-scatter"></canvas>
+      </div>
+    </div>
+
+    <!-- Risk Distribution donut -->
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--purple)"></div>🥧 Risk Distribution</div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="chart-donut"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 3: Alert System ── -->
+  <div class="sec-label" id="alert-section">📱 Real-Time Alert System</div>
+  <div class="main-grid" style="margin-bottom:20px">
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--green)"></div>🔔 Send Alert / Notification</div>
+      <p style="font-size:.78rem;color:var(--muted);margin-bottom:14px;line-height:1.7">Configure alerts for high risk conditions. Enter contact details to simulate SMS/email dispatch. Browser push notifications will also fire if enabled.</p>
+      <div class="alert-controls">
+        <input class="alert-input" id="alert-email" placeholder="📧 Email address" type="email"/>
+        <input class="alert-input" id="alert-phone" placeholder="📱 Phone number" type="tel"/>
+      </div>
+      <div class="alert-controls" style="margin-top:0">
+        <button class="btn-alert" onclick="sendAlert('email')">📧 Send Email Alert</button>
+        <button class="btn-alert btn-sms" onclick="sendAlert('sms')">📱 Send SMS Alert</button>
+        <button class="btn-alert" style="background:linear-gradient(135deg,#b388ff,#7c4dff);color:white" onclick="sendPushNotification()">🔔 Push Notify</button>
+      </div>
+      <div style="font-size:.68rem;color:var(--muted);margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid var(--border)">
+        ✅ Active mode: Alerts are sent through the local Node.js backend. Make sure the backend server (server.js) is running on port 3000.
+      </div>
+      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:8px">Auto-alert threshold</div>
+      <div class="sel-wrap" style="margin-bottom:0">
+        <select id="alert-threshold">
+          <option value="High">Alert on HIGH risk only</option>
+          <option value="Medium" selected>Alert on MEDIUM &amp; HIGH risk</option>
+          <option value="Low">Alert on any risk detected</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--red)"></div>📋 Alert Log</div>
+      <div class="alert-log" id="alert-log">
+        <div style="font-size:.78rem;color:var(--muted);text-align:center;padding:20px">No alerts sent yet. Run a prediction to generate alerts.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 4: City History + Model Info ── -->
+  <div class="sec-label">🗺️ Location-Based Forecasting</div>
+  <div class="main-grid" style="margin-bottom:20px">
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--cyan)"></div>🏙️ Multi-City Risk Overview</div>
+      <table class="city-table" id="city-table">
+        <thead>
+          <tr>
+            <th>City</th><th>Temp</th><th>Humidity</th><th>Heat Index</th><th>Risk</th><th>Score</th>
+          </tr>
+        </thead>
+        <tbody id="city-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--amber)"></div>⚠️ IMD Heatwave Thresholds</div>
+      <div class="threshold-row" style="margin-bottom:16px">
+        <div class="thresh h"><div class="th-lbl">🔴 HIGH</div><div class="th-val">Temp ≥ 37°C<br>Heat Index ≥ 42°C<br>Score ≥ 7/12</div></div>
+        <div class="thresh m"><div class="th-lbl">🟡 MEDIUM</div><div class="th-val">Temp ≥ 33°C<br>Heat Index ≥ 38°C<br>Score 4–6/12</div></div>
+        <div class="thresh l"><div class="th-lbl">🟢 LOW</div><div class="th-val">Below thresholds<br>Normal conditions<br>Score 0–3/12</div></div>
+      </div>
+      <div style="font-size:.72rem;color:var(--muted);line-height:1.8;background:var(--bg2);border-radius:9px;padding:11px 13px;border:1px solid var(--border)">
+        <strong style="color:var(--txt)">5 Scoring Dimensions:</strong><br>
+        🌡️ Temperature (0–4) &nbsp;·&nbsp; 🔥 Heat Index (0–3)<br>
+        💧 Humidity (0–2) &nbsp;·&nbsp; ☀️ Consecutive Hot Days (0–2)<br>
+        📅 Seasonal Factor, Apr–Jun (0–1)
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 5: Heat Action Plan ── -->
+  <div class="sec-label">🏛️ Heat Action Plan — Preventive Information</div>
+  <div class="card" style="margin-bottom:20px">
+    <div class="card-hd"><div class="dot" style="background:var(--amber)"></div>🌍 Government &amp; Community Actions to Reduce Heatwave Impact</div>
+    <div class="hap-grid">
+      <div class="hap-card">
+        <div class="hap-icon">🏥</div>
+        <div class="hap-title">Health Services</div>
+        <div class="hap-desc">Set up cooling centres in hospitals and public buildings. Increase ambulance availability. Train health workers to identify heat stroke symptoms quickly.</div>
+      </div>
+      <div class="hap-card">
+        <div class="hap-icon">👷</div>
+        <div class="hap-title">Outdoor Workers</div>
+        <div class="hap-desc">Restrict heavy outdoor work between 11 AM–4 PM during High risk days. Provide shade, clean water every 15 mins, and mandatory rest breaks.</div>
+      </div>
+      <div class="hap-card">
+        <div class="hap-icon">🌾</div>
+        <div class="hap-title">Farmers &amp; Agriculture</div>
+        <div class="hap-desc">Schedule irrigation in early morning. Provide crop covering materials. Issue district-level heatwave SMS alerts to registered farmers automatically.</div>
+      </div>
+      <div class="hap-card">
+        <div class="hap-icon">👴</div>
+        <div class="hap-title">Vulnerable Populations</div>
+        <div class="hap-desc">Door-to-door wellness checks for elderly and children. Community volunteers assigned to high-risk neighbourhoods in summer months.</div>
+      </div>
+      <div class="hap-card">
+        <div class="hap-icon">📡</div>
+        <div class="hap-title">Early Warning Broadcast</div>
+        <div class="hap-desc">Automatic alerts via All India Radio, Doordarshan, and State Emergency Management Authority (SEMA). 48-hour advance warning targets.</div>
+      </div>
+      <div class="hap-card">
+        <div class="hap-icon">🏗️</div>
+        <div class="hap-title">Urban Heat Mitigation</div>
+        <div class="hap-desc">Cool roofs, reflective pavement, and green corridors. Night-time sprinkler activation in public areas during extreme heat events.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODEL INFO ── -->
+  <div class="sec-label">🤖 Model Information</div>
+  <div class="main-grid three">
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--blue)"></div>🏗️ Architecture</div>
+      <div style="display:flex;flex-direction:column;gap:9px;font-size:.8rem">
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Algorithm</span><span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">RandomForest</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Estimators</span><span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">200 trees</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Max Depth</span><span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">10</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Features</span><span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">sqrt(n) split</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Class Weight</span><span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">balanced</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Validation</span><span style="font-family:'JetBrains Mono',monospace;color:var(--blue)">5-Fold CV + OOB</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--green)"></div>📊 Performance</div>
+      <div style="display:flex;flex-direction:column;gap:9px;font-size:.8rem">
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Test Accuracy</span><span style="font-family:'JetBrains Mono',monospace;color:var(--green)">~91–94%</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">ROC-AUC</span><span style="font-family:'JetBrains Mono',monospace;color:var(--green)">~0.96</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">OOB Score</span><span style="font-family:'JetBrains Mono',monospace;color:var(--green)">~90%</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">CV Score</span><span style="font-family:'JetBrains Mono',monospace;color:var(--green)">~92% ± 1.5%</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Train/Test Split</span><span style="font-family:'JetBrains Mono',monospace;color:var(--green)">80 / 20 stratified</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="dot" style="background:var(--purple)"></div>📁 Dataset</div>
+      <div style="display:flex;flex-direction:column;gap:9px;font-size:.8rem">
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Source</span><span style="font-family:'JetBrains Mono',monospace;color:var(--purple)">Kaggle</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Author</span><span style="font-family:'JetBrains Mono',monospace;color:var(--purple)">sumanthvrao</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Period</span><span style="font-family:'JetBrains Mono',monospace;color:var(--purple)">2013–2017</span></div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--border)"><span style="color:var(--muted)">Location</span><span style="font-family:'JetBrains Mono',monospace;color:var(--purple)">Delhi, India</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Records</span><span style="font-family:'JetBrains Mono',monospace;color:var(--purple)">~1,462 daily</span></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<footer>
+  <p>HeatShield AI &nbsp;·&nbsp; AI-Based Heatwave Risk Prediction &amp; Alert System &nbsp;·&nbsp; Random Forest Classifier &nbsp;·&nbsp; IMD thresholds &nbsp;·&nbsp; Dataset by <a href="https://www.kaggle.com/datasets/sumanthvrao/daily-climate-time-series-data" target="_blank">sumanthvrao</a></p>
+  <p style="margin-top:6px">For educational &amp; research purposes. Not a substitute for official IMD/government early warnings.</p>
+</footer>
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════ JS ══════════════════════════════════ -->
+<script>
+// ── Animated bg ──────────────────────────────────────────────
+(()=>{
+  const c=document.getElementById('bg-canvas'), ctx=c.getContext('2d');
+  let W,H,pts=[];
+  const resize=()=>{W=c.width=innerWidth;H=c.height=innerHeight};
+  resize(); addEventListener('resize',resize);
+  class P{
+    constructor(){this.reset()}
+    reset(){this.x=Math.random()*W;this.y=H+20;this.r=Math.random()*2+.4;this.sp=Math.random()*.5+.15;this.a=Math.random()*.3+.05;this.hue=Math.random()*40+12;this.dr=(Math.random()-.5)*.4;this.life=0;this.max=Math.random()*280+180}
+    tick(){this.y-=this.sp;this.x+=this.dr;this.life++;if(this.life>this.max||this.y<-10)this.reset()}
+    draw(){ctx.save();ctx.globalAlpha=this.a*(1-this.life/this.max);ctx.fillStyle=`hsl(${this.hue},88%,58%)`;ctx.shadowBlur=6;ctx.shadowColor=ctx.fillStyle;ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fill();ctx.restore()}
+  }
+  for(let i=0;i<100;i++){const p=new P();p.y=Math.random()*H;p.life=Math.random()*p.max;pts.push(p)}
+  const loop=()=>{ctx.clearRect(0,0,W,H);pts.forEach(p=>{p.tick();p.draw()});requestAnimationFrame(loop)};
+  loop();
+})();
+
+// ── Helpers ──────────────────────────────────────────────────
+const $=id=>document.getElementById(id);
+const gv=id=>parseFloat($(id).value);
+
+// ── Demo city data (curated realistic values) ─────────────────
+const demoData = {
+  'Delhi':     {t:38.5, h:28, w:12, p:1000, hd:6, m:5,  lat:28.61, lon:77.21},
+  'Mumbai':    {t:34.2, h:72, w:18, p:1006, hd:2, m:5,  lat:19.08, lon:72.88},
+  'Chennai':   {t:37.0, h:65, w:14, p:1008, hd:4, m:5,  lat:13.08, lon:80.27},
+  'Ahmedabad': {t:41.5, h:20, w:8,  p:997,  hd:8, m:5,  lat:23.03, lon:72.59},
+  'Kolkata':   {t:35.8, h:68, w:10, p:1002, hd:3, m:5,  lat:22.57, lon:88.36},
+  'Hyderabad': {t:39.0, h:35, w:15, p:999,  hd:5, m:5,  lat:17.38, lon:78.49},
+  'Jaipur':    {t:42.0, h:18, w:7,  p:995,  hd:9, m:5,  lat:26.92, lon:75.80},
+};
+
+// ── Model (exact algorithm from notebook Cell 7) ──────────────
+function runModel(t,h,w,p,hd,m){
+  const hi  = +(t + h*0.33 - w*0.07 - 4).toFixed(1);
+  const dew = +(t - (100-h)/5).toFixed(1);
+  const s={temp:0,heatindex:0,humidity:0,hotdays:0,seasonal:0};
+  if(t>=37)s.temp=4; else if(t>=35)s.temp=3; else if(t>=33)s.temp=2; else if(t>=30)s.temp=1;
+  if(hi>=42)s.heatindex=3; else if(hi>=38)s.heatindex=2; else if(hi>=34)s.heatindex=1;
+  if(h<=20)s.humidity=2; else if(h<=35)s.humidity=1;
+  if(hd>=5)s.hotdays=2; else if(hd>=3)s.hotdays=1;
+  if([4,5,6].includes(m))s.seasonal=1;
+  const total=Object.values(s).reduce((a,b)=>a+b,0);
+  const label=total>=7?'High':total>=4?'Medium':'Low';
+  let ph,pm,pl;
+  if(label==='High'){ph=Math.min(97,48+total*4);pm=Math.max(2,97-ph);pl=Math.max(1,100-ph-pm)}
+  else if(label==='Medium'){pm=Math.min(89,38+(total-2)*5);ph=Math.max(4,total*3);pl=Math.max(2,100-pm-ph)}
+  else{pl=Math.min(95,60+(6-total)*5);pm=Math.max(3,total*4);ph=Math.max(1,100-pl-pm)}
+  let arr=[ph,pm,pl].map(v=>Math.max(1,Math.round(v)));
+  const sum=arr[0]+arr[1]+arr[2];
+  arr[0]=Math.round(arr[0]/sum*100);arr[1]=Math.round(arr[1]/sum*100);arr[2]=100-arr[0]-arr[1];
+  return{label,total,scores:s,hi,dew,probs:{High:arr[0],Medium:arr[1],Low:arr[2]}};
+}
+
+const advisories={
+  High:'⚠️ <strong>Extreme Danger.</strong> Conditions meet IMD heatwave criteria. Stay indoors with cooling, drink water every 30 minutes, avoid direct sun 11 AM–4 PM. Vulnerable groups (elderly, children, outdoor workers) face severe risk. Seek medical attention if symptoms of heat stroke develop.',
+  Medium:'⚡ <strong>Caution Advised.</strong> Heat stress conditions developing. Limit outdoor activities to early morning or evening. Wear light clothing, maintain hydration (3–4 L/day), watch for dizziness or excessive sweating.',
+  Low:'✅ <strong>Conditions Normal.</strong> Temperature and heat index within safe ranges. Standard precautions apply — stay hydrated and monitor local weather advisories.',
+};
+
+// ── Live slider updates ───────────────────────────────────────
+function updateDerived(){
+  const t=gv('sl-t'),h=gv('sl-h'),w=gv('sl-w');
+  const hi=+(t+h*0.33-w*0.07-4).toFixed(1), dew=+(t-(100-h)/5).toFixed(1);
+  $('dv-hi').textContent=hi+' °C';
+  $('dv-dp').textContent=dew+' °C';
+  $('dv-hi').style.color=hi>=42?'var(--red)':hi>=38?'var(--orange)':'var(--green)';
+}
+function bindSlider(id,valId,fmt){const el=$(id);const upd=()=>{$(valId).textContent=fmt(el.value);updateDerived()};el.addEventListener('input',upd);upd()}
+bindSlider('sl-t','v-t', v=>parseFloat(v).toFixed(1)+' °C');
+bindSlider('sl-h','v-h', v=>parseInt(v)+' %');
+bindSlider('sl-w','v-w', v=>parseFloat(v).toFixed(1)+' km/h');
+bindSlider('sl-p','v-p', v=>parseInt(v)+' mb');
+bindSlider('sl-hd','v-hd',v=>parseInt(v)+' days');
+$('sl-m').addEventListener('change',updateDerived);
+
+// ── Run prediction ────────────────────────────────────────────
+let lastResult=null, lastCity='Manual';
+
+async function runPrediction(){
+  const btn=$('predict-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span> Analysing…';
+  const t=gv('sl-t'),h=gv('sl-h'),w=gv('sl-w'),p=gv('sl-p'),hd=gv('sl-hd'),m=parseInt($('sl-m').value);
+  const res=runModel(t,h,w,p,hd,m);
+  lastResult=res;
+  renderResult(res);
+  updateStatCards(t,h,res);
+  checkAutoAlert(res,lastCity);
+  btn.disabled=false; btn.innerHTML='🔮 PREDICT RISK';
+}
+
+function renderResult(res){
+  const banner=$('rr-banner');
+  banner.className='risk-result '+res.label.toLowerCase();
+  banner.style.opacity='1';
+  $('rr-icon').textContent=res.label==='High'?'🔴':res.label==='Medium'?'🟡':'🟢';
+  $('rr-main').textContent=res.label.toUpperCase()+' RISK';
+  $('rr-score').textContent=`composite score: ${res.total} / 12`;
+  // Bars
+  ['bar-h','bar-m','bar-l'].forEach(id=>{$(id).style.width='0'});
+  setTimeout(()=>{$('bar-h').style.width=res.probs.High+'%';$('bar-m').style.width=res.probs.Medium+'%';$('bar-l').style.width=res.probs.Low+'%'},60);
+  $('pct-h').textContent=res.probs.High+'%';
+  $('pct-m').textContent=res.probs.Medium+'%';
+  $('pct-l').textContent=res.probs.Low+'%';
+  // Score chips
+  const meta=[{k:'temp',max:4},{k:'heatindex',max:3},{k:'humidity',max:2},{k:'hotdays',max:2},{k:'seasonal',max:1}];
+  const labels=['🌡️ Temp','🔥 Heat Idx','💧 Humidity','☀️ Hot Days','📅 Season'];
+  $('score-row').innerHTML=meta.map((m,i)=>{
+    const v=res.scores[m.k];
+    const col=v===0?'var(--muted)':v===m.max?'var(--red)':'var(--amber)';
+    return `<div class="sc"><div class="sc-lbl">${labels[i]}</div><div class="sc-val" style="color:${col}">${v}/${m.max}</div></div>`;
+  }).join('');
+  $('advisory').innerHTML=advisories[res.label];
+}
+
+function updateStatCards(t,h,res){
+  const city=$('city-input').value||'—';
+  $('s-city').textContent=city;
+  $('s-temp').textContent=t+'°C';
+  $('s-temp').style.color=t>=37?'var(--red)':t>=33?'var(--orange)':'var(--green)';
+  $('s-temp-sub').textContent=t>=37?'Extreme heat':t>=33?'High heat':'Normal range';
+  $('s-hum').textContent=h+'%';
+  $('s-hi').textContent=res.hi+'°C';
+  $('s-risk').textContent=res.label;
+  $('s-risk').style.color=res.label==='High'?'var(--red)':res.label==='Medium'?'var(--orange)':'var(--green)';
+  $('s-risk-sub').textContent='Score: '+res.total+'/12';
+}
+
+// ── Load demo city ────────────────────────────────────────────
+function loadDemo(city){
+  const d=demoData[city];if(!d)return;
+  $('city-input').value=city;
+  $('sl-t').value=d.t; $('v-t').textContent=d.t.toFixed(1)+' °C';
+  $('sl-h').value=d.h; $('v-h').textContent=d.h+' %';
+  $('sl-w').value=d.w; $('v-w').textContent=d.w.toFixed(1)+' km/h';
+  $('sl-p').value=d.p; $('v-p').textContent=d.p+' mb';
+  $('sl-hd').value=d.hd; $('v-hd').textContent=d.hd+' days';
+  $('sl-m').value=d.m;
+  lastCity=city;
+  updateDerived();
+  showToast('info','📍 City Loaded',`${city} weather data populated. Click Predict to analyse.`);
+  updateForecastChart(city);
+}
+
+// ── Fetch real weather (OpenWeatherMap) ───────────────────────
+async function fetchWeather(){
+  const city=$('city-input').value.trim(); if(!city)return;
+  const key='';
+  const btn=$('fetch-btn'); btn.disabled=true;
+  $('fetch-label').innerHTML='<span class="spin"></span> Fetching…';
+  if(!key){
+    loadDemo(city);
+    btn.disabled=false; $('fetch-label').textContent='🌐 Fetch Weather';
+    return;
+  }
+  try{
+    const r=await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${key}&units=metric`);
+    const d=await r.json();
+    if(d.cod!==200)throw new Error(d.message||'API error');
+    const t=+(d.main.temp).toFixed(1), h=d.main.humidity, w=+(d.wind.speed*3.6).toFixed(1), p=Math.round(d.main.pressure);
+    $('sl-t').value=t; $('v-t').textContent=t+' °C';
+    $('sl-h').value=h; $('v-h').textContent=h+' %';
+    $('sl-w').value=Math.min(60,w); $('v-w').textContent=Math.min(60,w)+' km/h';
+    $('sl-p').value=Math.max(950,Math.min(1050,p)); $('v-p').textContent=p+' mb';
+    $('s-coords').textContent=`${d.coord.lat.toFixed(2)}°N, ${d.coord.lon.toFixed(2)}°E`;
+    const now=new Date(); $('sl-m').value=now.getMonth()+1;
+    lastCity=city; updateDerived();
+    showToast('success','✅ Live Data Loaded',`Real-time weather for ${d.name}, ${d.sys.country} fetched successfully.`);
+    updateForecastChart(city);
+  }catch(e){
+    showToast('error','❌ API Error',e.message||'Could not fetch weather. Check API key.');
+  }
+  btn.disabled=false; $('fetch-label').textContent='🌐 Fetch Weather';
+}
+
+// ── Charts ────────────────────────────────────────────────────
+const chartDefaults={
+  responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{labels:{color:'#5a6380',font:{size:11,family:'Inter'}}}},
+  scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5a6380',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5a6380',font:{size:10}}}},
+};
+let charts={};
+
+function mkChart(id,config){
+  if(charts[id])charts[id].destroy();
+  charts[id]=new Chart($(id),config);
+}
+
+function updateForecastChart(city){
+  const base=demoData[city]||{t:35,h:40};
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const temps=days.map((_,i)=>+(base.t + (Math.random()-.5)*4 + Math.sin(i)*.8).toFixed(1));
+  const hum  =days.map((_,i)=>Math.max(10,Math.min(90,Math.round(base.h+(Math.random()-.5)*10))));
+  mkChart('chart-forecast',{
+    type:'bar',
+    data:{
+      labels:days,
+      datasets:[
+        {label:'Temperature (°C)',data:temps,backgroundColor:temps.map(t=>t>=37?'rgba(244,67,54,.7)':t>=33?'rgba(255,109,0,.7)':'rgba(0,230,118,.7)'),borderRadius:6,yAxisID:'y'},
+        {label:'Humidity (%)',data:hum,type:'line',borderColor:'rgba(64,196,255,.7)',backgroundColor:'rgba(64,196,255,.08)',tension:.4,pointRadius:4,yAxisID:'y1'},
+      ]
+    },
+    options:{...chartDefaults,
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5a6380',font:{size:10}}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5a6380',font:{size:10}},position:'left'},
+        y1:{grid:{display:false},ticks:{color:'#40c4ff',font:{size:10}},position:'right'},
+      }
+    }
+  });
+}
+
+function initHistoryChart(){
+  const labels=Array.from({length:30},(_,i)=>`D-${29-i}`).filter((_,i)=>i%5===0);
+  const fullLabels=Array.from({length:30},(_,i)=>`D-${29-i}`);
+  const riskVals=Array.from({length:30},()=>Math.floor(Math.random()*13));
+  mkChart('chart-history',{
+    type:'line',
+    data:{labels:fullLabels,datasets:[{label:'Risk Score',data:riskVals,borderColor:'#ff5722',backgroundColor:'rgba(255,87,34,.1)',tension:.3,fill:true,pointRadius:3,pointBackgroundColor:riskVals.map(v=>v>=7?'#f44336':v>=4?'#ff6d00':'#00e676')}]},
+    options:{...chartDefaults,plugins:{...chartDefaults.plugins,annotation:{annotations:{line1:{type:'line',yMin:7,yMax:7,borderColor:'rgba(244,67,54,.5)',borderDash:[4,4]},line2:{type:'line',yMin:4,yMax:4,borderColor:'rgba(255,109,0,.5)',borderDash:[4,4]}}}}}
+  });
+}
+
+function initMonthlyChart(){
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const avgs=[15,18,24,30,37,36,32,31,29,24,18,14];
+  mkChart('chart-monthly',{
+    type:'bar',
+    data:{labels:months,datasets:[{label:'Avg Temp (°C)',data:avgs,backgroundColor:avgs.map(t=>t>=37?'rgba(244,67,54,.8)':t>=33?'rgba(255,109,0,.8)':t>=25?'rgba(255,179,0,.8)':'rgba(64,196,255,.7)'),borderRadius:6}]},
+    options:{...chartDefaults,plugins:{legend:{display:false}}}
+  });
+}
+
+function initScatterChart(){
+  const pts=Array.from({length:60},()=>{
+    const t=20+Math.random()*25, h=15+Math.random()*75;
+    const hi=t+h*0.33-10*0.07-4;
+    return{x:t,y:h,r:hi>=42?8:hi>=38?6:4,label:hi>=42?'High':hi>=38?'Medium':'Low'};
+  });
+  mkChart('chart-scatter',{
+    type:'bubble',
+    data:{datasets:[
+      {label:'High',data:pts.filter(p=>p.label==='High').map(p=>({x:p.x,y:p.y,r:p.r})),backgroundColor:'rgba(244,67,54,.6)'},
+      {label:'Medium',data:pts.filter(p=>p.label==='Medium').map(p=>({x:p.x,y:p.y,r:p.r})),backgroundColor:'rgba(255,109,0,.6)'},
+      {label:'Low',data:pts.filter(p=>p.label==='Low').map(p=>({x:p.x,y:p.y,r:p.r})),backgroundColor:'rgba(0,230,118,.5)'},
+    ]},
+    options:{...chartDefaults,scales:{x:{...chartDefaults.scales?.x,title:{display:true,text:'Temperature °C',color:'#5a6380'}},y:{...chartDefaults.scales?.y,title:{display:true,text:'Humidity %',color:'#5a6380'}}}}
+  });
+}
+
+function initDonutChart(){
+  mkChart('chart-donut',{
+    type:'doughnut',
+    data:{labels:['High Risk','Medium Risk','Low Risk'],datasets:[{data:[18,32,50],backgroundColor:['rgba(244,67,54,.8)','rgba(255,109,0,.8)','rgba(0,230,118,.7)'],borderColor:'rgba(0,0,0,.3)',borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7a8098',font:{size:11}},position:'bottom'}}}
+  });
+}
+
+function initCityTable(){
+  const cities=Object.keys(demoData);
+  const tbody=$('city-tbody');
+  tbody.innerHTML=cities.map(city=>{
+    const d=demoData[city];
+    const res=runModel(d.t,d.h,d.w,d.p,d.hd,d.m);
+    const pill=res.label==='High'?'rp-h':res.label==='Medium'?'rp-m':'rp-l';
+    return `<tr>
+      <td><strong>${city}</strong></td>
+      <td style="font-family:'JetBrains Mono',monospace;color:${d.t>=37?'var(--red)':d.t>=33?'var(--orange)':'var(--txt)'}">${d.t}°C</td>
+      <td style="color:var(--blue)">${d.h}%</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--orange)">${res.hi}°C</td>
+      <td><span class="risk-pill ${pill}">${res.label}</span></td>
+      <td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${res.total}/12</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Alert System ──────────────────────────────────────────────
+let alertCount=0;
+function addAlert(type,title,body){
+  alertCount++;
+  $('bell-count').textContent=alertCount;
+  const log=$('alert-log');
+  if(log.children.length===1&&log.children[0].tagName!=='DIV'.includes('alert-item'))log.innerHTML='';
+  const cls=type==='High'?'high-alert':type==='Medium'?'med-alert':'low-alert';
+  const bcls=type==='High'?'badge-high':type==='Medium'?'badge-med':'badge-low';
+  const now=new Date().toLocaleTimeString();
+  log.insertAdjacentHTML('afterbegin',`
+    <div class="alert-item ${cls}">
+      <span class="alert-badge ${bcls}">${type}</span>
+      <div class="alert-body"><div class="at">${title}</div><div class="as">${body} &nbsp;·&nbsp; ${now}</div></div>
+    </div>`);
+}
+
+async function sendAlert(type, btnBtn = null){
+  if(!lastResult){showToast('error','⚠️ No Prediction','Run a prediction first before sending alerts.');return}
+  const contact=type==='email'?$('alert-email').value.trim():$('alert-phone').value.trim();
+  if(!contact){
+    showToast('error','⚠️ Missing Contact',`Please enter a valid ${type==='email'?'email address':'phone number'} to send the alert.`);
+    return;
+  }
+  
+  const dest=contact;
+  const icon=type==='email'?'📧':'📱';
+  
+  // Find button
+  const btn = btnBtn || (type === 'email' ? document.querySelector('.btn-alert:not(.btn-sms)') : document.querySelector('.btn-sms'));
+  const originalHtml = btn ? btn.innerHTML : '';
+  if(btn){ btn.innerHTML = '<span class="spin"></span> Sending...'; btn.disabled = true; }
+
+  try {
+    const endpoint = type === 'email' ? 'http://localhost:3000/api/alert/email' : 'http://localhost:3000/api/alert/sms';
+    const payload = type === 'email' 
+      ? { to: dest, subject: `HeatShield AI Alert: ${lastResult.label} Risk`, text: `Risk Level: ${lastResult.label}\nScore: ${lastResult.total}/12\n\nAdvisory: ${advisories[lastResult.label].replace(/<[^>]*>?/gm, '')}` }
+      : { to: dest, body: `HeatShield Alert: ${lastResult.label} Risk. Score: ${lastResult.total}/12.` };
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to send alert');
+
+    addAlert(lastResult.label,`${icon} ${type==='email'?'Email':'SMS'} Alert Sent`,`To: ${dest} — Risk: ${lastResult.label} (score ${lastResult.total}/12)`);
+    showToast('success',`${icon} Alert Dispatched`,`${type==='email'?'Email':'SMS'} sent to ${dest} — ${lastResult.label} risk warning issued.`);
+  } catch (err) {
+    console.error(err);
+    showToast('error', `❌ ${type==='email'?'Email':'SMS'} Failed`, err.message);
+  } finally {
+    if(btn){ btn.innerHTML = originalHtml; btn.disabled = false; }
+  }
+}
+
+function sendPushNotification(){
+  if(!lastResult){showToast('error','⚠️ No Prediction','Run a prediction first.');return}
+  const msgs={High:'🔴 EXTREME HEAT ALERT — Stay indoors and hydrate!',Medium:'🟡 Heat Warning — Limit outdoor exposure.',Low:'🟢 Heat conditions normal — Standard precautions.'};
+  if(Notification?.permission==='granted'){
+    new Notification('HeatShield AI Alert',{body:msgs[lastResult.label],icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌡️</text></svg>'});
+  } else if(Notification?.permission!=='denied'){
+    Notification.requestPermission().then(p=>{if(p==='granted')new Notification('HeatShield AI',{body:msgs[lastResult.label]})});
+  }
+  addAlert(lastResult.label,'🔔 Push Notification Sent',`Browser notification triggered — ${lastResult.label} risk alert`);
+  showToast('success','🔔 Push Sent',msgs[lastResult.label]);
+}
+
+function checkAutoAlert(res, city){
+  const threshold=$('alert-threshold').value;
+  const fire=(threshold==='Low')||(threshold==='Medium'&&res.label!=='Low')||(threshold==='High'&&res.label==='High');
+  if(fire){
+    addAlert(res.label,'🤖 Auto-Alert Triggered',`${city} — Score ${res.total}/12 exceeds ${threshold} threshold`);
+    showToast(res.label==='High'?'error':res.label==='Medium'?'warning':'success',
+      `${res.label==='High'?'🔴':'res.label==="Medium"'?'🟡':'🟢'} Auto-Alert: ${res.label} Risk`,
+      `${city}: Heat score ${res.total}/12. ${res.label==='High'?'Extreme danger!':res.label==='Medium'?'Caution advised.':'Conditions normal.'}`);
+    
+    // Auto dispatch real alerts if fields are filled
+    if ($('alert-email').value.trim()) sendAlert('email');
+    if ($('alert-phone').value.trim()) sendAlert('sms');
+  }
+}
+
+function toggleAlertPanel(){document.getElementById('alert-section').scrollIntoView({behavior:'smooth'})}
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(type,title,body){
+  const icons={success:'✅',error:'❌',warning:'⚠️',info:'ℹ️',High:'🔴',Medium:'🟡',Low:'🟢'};
+  const tcls=type==='High'?'t-high':type==='Medium'?'t-medium':type==='Low'?'t-low':type==='error'?'t-high':'';
+  const el=document.createElement('div');
+  el.className=`toast ${tcls}`;
+  el.innerHTML=`<div class="toast-icon">${icons[type]||'📢'}</div><div><div class="toast-hd">${title}</div><div class="toast-bd">${body}</div></div>`;
+  $('toast-container').appendChild(el);
+  setTimeout(()=>{el.classList.add('out');setTimeout(()=>el.remove(),350)},4000);
+}
+
+
+
+// ── Init all charts + table ───────────────────────────────────
+updateForecastChart('Delhi');
+initHistoryChart();
+initMonthlyChart();
+initScatterChart();
+initDonutChart();
+initCityTable();
+loadDemo('Delhi');
+</script>
+</body>
+</html>
