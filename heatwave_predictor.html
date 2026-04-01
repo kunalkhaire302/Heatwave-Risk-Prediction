@@ -1021,20 +1021,11 @@ function updateStatCards(t,h,res){
   $('s-risk-sub').textContent='Score: '+res.total+'/12';
 }
 
-// ── Load demo city ────────────────────────────────────────────
+// ── Load demo city (fetches real-time data from API) ──────────
 function loadDemo(city){
-  const d=demoData[city];if(!d)return;
   $('city-input').value=city;
-  $('sl-t').value=d.t; $('v-t').textContent=d.t.toFixed(1)+' °C';
-  $('sl-h').value=d.h; $('v-h').textContent=d.h+' %';
-  $('sl-w').value=d.w; $('v-w').textContent=d.w.toFixed(1)+' km/h';
-  $('sl-p').value=d.p; $('v-p').textContent=d.p+' mb';
-  $('sl-hd').value=d.hd; $('v-hd').textContent=d.hd+' days';
-  $('sl-m').value=d.m;
   lastCity=city;
-  updateDerived();
-  showToast('info','📍 City Loaded',`${city} weather data populated. Click Predict to analyse.`);
-  updateForecastChart(city);
+  fetchWeather();
 }
 
 // ── Fetch real weather (OpenWeatherMap) ───────────────────────
