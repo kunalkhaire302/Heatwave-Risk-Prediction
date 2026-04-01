@@ -558,6 +558,9 @@ footer a{color:var(--accent);text-decoration:none}
         <div class="demo-chip" onclick="loadDemo('Kolkata')">Kolkata</div>
         <div class="demo-chip" onclick="loadDemo('Hyderabad')">Hyderabad</div>
         <div class="demo-chip" onclick="loadDemo('Jaipur')">Jaipur</div>
+        <div class="demo-chip" onclick="loadDemo('Shirpur')">Shirpur</div>
+        <div class="demo-chip" onclick="loadDemo('Dhule')">Dhule</div>
+        <div class="demo-chip" onclick="loadDemo('Nashik')">Nashik</div>
       </div>
     </div>
 
@@ -917,6 +920,9 @@ const demoData = {
   'Kolkata':   {t:35.8, h:68, w:10, p:1002, hd:3, m:5,  lat:22.57, lon:88.36},
   'Hyderabad': {t:39.0, h:35, w:15, p:999,  hd:5, m:5,  lat:17.38, lon:78.49},
   'Jaipur':    {t:42.0, h:18, w:7,  p:995,  hd:9, m:5,  lat:26.92, lon:75.80},
+  'Shirpur':   {t:40.5, h:22, w:9,  p:998,  hd:7, m:5,  lat:21.35, lon:74.88},
+  'Dhule':     {t:41.0, h:20, w:8,  p:997,  hd:8, m:5,  lat:20.90, lon:74.78},
+  'Nashik':    {t:37.5, h:30, w:11, p:1002, hd:4, m:5,  lat:19.99, lon:73.79},
 };
 
 // ── Model (exact algorithm from notebook Cell 7) ──────────────
@@ -1056,6 +1062,8 @@ async function fetchWeather(){
     lastCity=city; updateDerived();
     showToast('success','✅ Live Data Loaded',`Real-time weather for ${d.name}, ${d.sys.country} fetched successfully.`);
     updateForecastChart(city);
+    // Auto-run prediction so stat cards update immediately
+    await runPrediction();
   }catch(e){
     showToast('error','❌ API Error',e.message||'Could not fetch weather. Check API key.');
   }
