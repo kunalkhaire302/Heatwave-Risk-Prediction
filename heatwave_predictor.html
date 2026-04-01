@@ -1034,7 +1034,7 @@ function loadDemo(city){
 // ── Fetch real weather (OpenWeatherMap) ───────────────────────
 async function fetchWeather(){
   const city=$('city-input').value.trim(); if(!city)return;
-  const key='';
+  const key='17c5a746c9e23283ea89e85d881c7ca0';
   const btn=$('fetch-btn'); btn.disabled=true;
   $('fetch-label').innerHTML='<span class="spin"></span> Fetching…';
   if(!key){
