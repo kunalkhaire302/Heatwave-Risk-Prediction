@@ -637,7 +637,15 @@ footer a{color:var(--accent);text-decoration:none}
 
       <!-- 7-Day Forecast inside result card -->
       <div>
-        <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px">📅 7-Day Temperature & Risk Forecast</div>
+        <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div id="fc-title">📅 Risk Forecast Timeline</div>
+          <div class="ff-group" style="display:flex;gap:4px">
+            <button class="demo-chip fc-btn" style="border-color:var(--accent);color:var(--txt)" onclick="updateResultChart('day')">Day</button>
+            <button class="demo-chip fc-btn" onclick="updateResultChart('week')">Week</button>
+            <button class="demo-chip fc-btn" onclick="updateResultChart('month')">Month</button>
+            <button class="demo-chip fc-btn" onclick="updateResultChart('year')">Year</button>
+          </div>
+        </div>
         <div class="chart-wrap" style="height:220px">
           <canvas id="chart-forecast-result"></canvas>
         </div>
@@ -926,8 +934,8 @@ async function runPrediction(){
   renderResult(res);
   updateStatCards(t,h,res);
   checkAutoAlert(res,lastCity);
-  // Update 7-day forecast in result card using current temp & month
-  update7DayForecast(t,h,m);
+  // Update forecast in result card
+  updateResultChart('day');
   btn.disabled=false; btn.innerHTML='🔮 PREDICT RISK';
 }
 
@@ -1025,80 +1033,123 @@ function updateForecastChart(city){
   });
 }
 
-// ── 7-Day Forecast in Result Card (uses real API + model) ─────
-async function update7DayForecast(currentTemp, currentHum, month){
-  const city=$('city-input').value.trim();
+// ── Forecast in Result Card (Day/Week/Month/Year filters) ─────
+async function updateResultChart(filterType='day'){
+  const currentTemp=gv('sl-t'), currentHum=gv('sl-h'), month=parseInt($('sl-m').value);
+  const city=$('city-input').value.trim() || 'Manual';
   const key='17c5a746c9e23283ea89e85d881c7ca0';
   const today=new Date();
-  const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  let dayLabels=[], temps=[], risks=[], riskColors=[];
-
-  // Day 0 = today
-  dayLabels.push('Today');
-  temps.push(currentTemp);
-  const todayRes=runModel(currentTemp,currentHum,gv('sl-w'),gv('sl-p'),gv('sl-hd'),month);
-  risks.push(todayRes.total);
-  riskColors.push(todayRes.label==='High'?'rgba(244,67,54,.85)':todayRes.label==='Medium'?'rgba(255,109,0,.85)':'rgba(0,230,118,.75)');
-
-  // Try fetching real 5-day forecast from API
-  let apiForecast=null;
-  if(city && key){
-    try{
-      const r=await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${key}&units=metric`);
-      const d=await r.json();
-      if(d.cod==='200' && d.list){
-        // Group by day, get daily max temp & avg humidity
-        const dailyMap={};
-        d.list.forEach(item=>{
-          const date=item.dt_txt.split(' ')[0];
-          if(!dailyMap[date])dailyMap[date]={temps:[],hums:[],winds:[],pressures:[]};
-          dailyMap[date].temps.push(item.main.temp);
-          dailyMap[date].hums.push(item.main.humidity);
-          dailyMap[date].winds.push(item.wind.speed*3.6);
-          dailyMap[date].pressures.push(item.main.pressure);
-        });
-        const todayStr=today.toISOString().split('T')[0];
-        const sortedDays=Object.keys(dailyMap).filter(d=>d>todayStr).sort().slice(0,6);
-        apiForecast=sortedDays.map(dateStr=>{
-          const dd=dailyMap[dateStr];
-          return{
-            date:dateStr,
-            maxTemp:+Math.max(...dd.temps).toFixed(1),
-            avgHum:Math.round(dd.hums.reduce((a,b)=>a+b,0)/dd.hums.length),
-            avgWind:+(dd.winds.reduce((a,b)=>a+b,0)/dd.winds.length).toFixed(1),
-            avgPressure:Math.round(dd.pressures.reduce((a,b)=>a+b,0)/dd.pressures.length)
-          };
-        });
-      }
-    }catch(e){console.warn('Forecast API failed, using simulated data',e)}
+  
+  // Highlight active button mathematically
+  const btns = document.querySelectorAll('.fc-btn');
+  if(btns.length > 0) {
+    btns.forEach(b => { b.style.borderColor='var(--border)'; b.style.color='var(--muted)'; });
+    const active = Array.from(btns).find(b => b.textContent.toLowerCase() === filterType);
+    if(active) { active.style.borderColor='var(--accent)'; active.style.color='var(--txt)'; }
   }
 
-  // Fill days 1-6
-  for(let i=1;i<=6;i++){
-    const futureDate=new Date(today);
-    futureDate.setDate(today.getDate()+i);
-    const dayLabel=i<=2?(['Tomorrow','Day 3'][i-1]||dayNames[futureDate.getDay()]):dayNames[futureDate.getDay()];
-    dayLabels.push(i===1?'Tomorrow':dayNames[futureDate.getDay()]);
+  let dayLabels=[], temps=[], risks=[], riskColors=[];
+  
+  if (filterType === 'day') {
+    if($('fc-title')) $('fc-title').innerHTML = '📅 7-Day Risk Forecast';
+    dayLabels.push('Today');
+    temps.push(currentTemp);
+    const todayRes=runModel(currentTemp,currentHum,gv('sl-w'),gv('sl-p'),gv('sl-hd'),month);
+    risks.push(todayRes.total);
+    riskColors.push(todayRes.label==='High'?'rgba(244,67,54,.85)':todayRes.label==='Medium'?'rgba(255,109,0,.85)':'rgba(0,230,118,.75)');
 
-    let t,h,w,p;
-    if(apiForecast && apiForecast[i-1]){
-      t=apiForecast[i-1].maxTemp;
-      h=apiForecast[i-1].avgHum;
-      w=apiForecast[i-1].avgWind;
-      p=apiForecast[i-1].avgPressure;
-    } else {
-      // Simulated: slight daily variation based on month seasonality
-      const seasonalBias=[4,5,6].includes(month)?1.5:[3,7,8,9].includes(month)?0:-2;
-      t=+(currentTemp + (Math.random()-0.4)*3 + seasonalBias*0.3 + Math.sin(i*0.8)*0.5).toFixed(1);
-      h=Math.max(10,Math.min(95,Math.round(currentHum+(Math.random()-0.5)*15)));
-      w=+(gv('sl-w')+(Math.random()-0.5)*6).toFixed(1);
-      p=Math.round(gv('sl-p')+(Math.random()-0.5)*8);
+    let apiForecast=null;
+    if(city!=='Manual' && key){
+      try{
+        const r=await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${key}&units=metric`);
+        const d=await r.json();
+        if(d.cod==='200' && d.list){
+          const dailyMap={};
+          d.list.forEach(item=>{
+            const date=item.dt_txt.split(' ')[0];
+            if(!dailyMap[date])dailyMap[date]={temps:[],hums:[],winds:[],pressures:[]};
+            dailyMap[date].temps.push(item.main.temp);
+            dailyMap[date].hums.push(item.main.humidity);
+            dailyMap[date].winds.push(item.wind.speed*3.6);
+            dailyMap[date].pressures.push(item.main.pressure);
+          });
+          const todayStr=today.toISOString().split('T')[0];
+          const sortedDays=Object.keys(dailyMap).filter(d=>d>todayStr).sort().slice(0,6);
+          apiForecast=sortedDays.map(dateStr=>{
+            const dd=dailyMap[dateStr];
+            return{ date:dateStr, maxTemp:+Math.max(...dd.temps).toFixed(1), avgHum:Math.round(dd.hums.reduce((a,b)=>a+b,0)/dd.hums.length), avgWind:+(dd.winds.reduce((a,b)=>a+b,0)/dd.winds.length).toFixed(1), avgPressure:Math.round(dd.pressures.reduce((a,b)=>a+b,0)/dd.pressures.length) };
+          });
+        }
+      }catch(e){}
     }
-    temps.push(t);
-    const futureMonth=futureDate.getMonth()+1;
-    const dayRes=runModel(t,h,Math.max(0,w),p,Math.max(0,gv('sl-hd')),futureMonth);
-    risks.push(dayRes.total);
-    riskColors.push(dayRes.label==='High'?'rgba(244,67,54,.85)':dayRes.label==='Medium'?'rgba(255,109,0,.85)':'rgba(0,230,118,.75)');
+
+    const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    for(let i=1;i<=6;i++){
+      const futureDate=new Date(today);
+      futureDate.setDate(today.getDate()+i);
+      dayLabels.push(i===1?'Tomorrow':dayNames[futureDate.getDay()]);
+
+      let t,h,w,p;
+      if(apiForecast && apiForecast[i-1]){
+        t=apiForecast[i-1].maxTemp; h=apiForecast[i-1].avgHum; w=apiForecast[i-1].avgWind; p=apiForecast[i-1].avgPressure;
+      } else {
+        const seasonalBias=[4,5,6].includes(month)?1.5:[3,7,8,9].includes(month)?0:-2;
+        t=+(currentTemp + (Math.random()-0.4)*3 + seasonalBias*0.3 + Math.sin(i*0.8)*0.5).toFixed(1);
+        h=Math.max(10,Math.min(95,Math.round(currentHum+(Math.random()-0.5)*15)));
+        w=+(gv('sl-w')+(Math.random()-0.5)*6).toFixed(1);
+        p=Math.round(gv('sl-p')+(Math.random()-0.5)*8);
+      }
+      temps.push(t);
+      const futureMonth=futureDate.getMonth()+1;
+      const dayRes=runModel(t,h,Math.max(0,w),p,Math.max(0,gv('sl-hd')),futureMonth);
+      risks.push(dayRes.total);
+      riskColors.push(dayRes.label==='High'?'rgba(244,67,54,.85)':dayRes.label==='Medium'?'rgba(255,109,0,.85)':'rgba(0,230,118,.75)');
+    }
+  }
+  else if (filterType === 'week') {
+    if($('fc-title')) $('fc-title').innerHTML = '📅 8-Week Risk Trend';
+    let curMonth = month;
+    for(let i=0; i<8; i++) {
+      dayLabels.push('Wk '+(i+1));
+      let seasonalBias=[4,5,6].includes(curMonth)?1.5:[3,7,8,9].includes(curMonth)?0:-1.5;
+      let t = +(currentTemp + (Math.random()-0.3)*3 + seasonalBias*(i*0.3)).toFixed(1);
+      let h = Math.max(10,Math.min(95,Math.round(currentHum+(Math.random()-0.5)*10)));
+      temps.push(t);
+      const res=runModel(t,h,gv('sl-w'),gv('sl-p'),gv('sl-hd'),curMonth);
+      risks.push(res.total);
+      riskColors.push(res.label==='High'?'rgba(244,67,54,.85)':res.label==='Medium'?'rgba(255,109,0,.85)':'rgba(0,230,118,.75)');
+      if(i===3) curMonth = curMonth >= 12 ? 1 : curMonth+1;
+    }
+  }
+  else if (filterType === 'month') {
+    if($('fc-title')) $('fc-title').innerHTML = '📅 12-Month Seasonal Forecast';
+    const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let m = today.getMonth();
+    for(let i=0; i<12; i++) {
+        let cm = (m+i)%12;
+        dayLabels.push(monthNames[cm]);
+        // Simple heuristic curve imitating Indian summer/monsoon/winter
+        const baseTemp = [21,24,31,37,40,38,34,33,33,32,28,23][cm];
+        let t = +(baseTemp + (Math.random()-0.5)*2.5).toFixed(1);
+        let h = (cm>=6 && cm<=8) ? 75 : 40; // Monsoon humidity
+        temps.push(t);
+        const res=runModel(t,h,10,1005, 2, cm+1);
+        risks.push(res.total);
+        riskColors.push(res.label==='High'?'rgba(244,67,54,.85)':res.label==='Medium'?'rgba(255,109,0,.85)':'rgba(0,230,118,.75)');
+    }
+  }
+  else if (filterType === 'year') {
+    if($('fc-title')) $('fc-title').innerHTML = '📅 5-Year Climate Trend';
+    let y = today.getFullYear();
+    for(let i=0; i<5; i++) {
+        dayLabels.push(y+i);
+        // Warming factor +0.4/yr in extremes
+        let t = +(Math.max(currentTemp, 38) + i*0.4 + (Math.random()-0.5)*1.5).toFixed(1); 
+        temps.push(t);
+        const res=runModel(t, currentHum, gv('sl-w'), gv('sl-p'), 5, 5); // Peak extreme parameters
+        risks.push(res.total);
+        riskColors.push(res.label==='High'?'rgba(244,67,54,.85)':res.label==='Medium'?'rgba(255,109,0,.85)':'rgba(0,230,118,.75)');
+    }
   }
 
   mkChart('chart-forecast-result',{
