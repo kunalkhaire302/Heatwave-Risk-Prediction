@@ -5,8 +5,18 @@ const nodemailer = require('nodemailer');
 const twilio = require('twilio');
 
 const app = express();
+const path = require('path');
+
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the current directory
+app.use(express.static(__dirname));
+
+// Serve the frontend interface on the root URL
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'heatwave_predictor.html'));
+});
 
 // Set up Nodemailer transporter
 const transporter = nodemailer.createTransport({
