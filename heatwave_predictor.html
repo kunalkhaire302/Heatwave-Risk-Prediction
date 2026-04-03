@@ -635,49 +635,8 @@ footer a{color:var(--accent);text-decoration:none}
     <div class="card" id="result-card">
       <div class="card-hd"><div class="dot" style="background:var(--green)"></div>🎯 Prediction Result</div>
 
-      <div class="risk-result low" id="rr-banner" style="opacity:.35">
-        <div class="rr-icon" id="rr-icon">❓</div>
-        <div>
-          <div class="rr-tag">HEATWAVE RISK LEVEL</div>
-          <div class="rr-main" id="rr-main">RUN PREDICTION</div>
-          <div class="rr-score" id="rr-score">Adjust parameters and click predict</div>
-        </div>
-      </div>
-
-      <!-- Derived -->
-      <div class="derived-grid">
-        <div class="dchip"><div class="dc-lbl">🌫️ Dew Point</div><div class="dc-val" id="dv-dp" style="color:var(--amber)">—</div></div>
-        <div class="dchip"><div class="dc-lbl">🔥 Heat Index</div><div class="dc-val" id="dv-hi" style="color:var(--red)">—</div></div>
-      </div>
-
-      <!-- Probability Bars -->
-      <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:10px">Confidence</div>
-      <div class="prob-row">
-        <div class="prob-lbl-row"><span style="color:var(--red)">🔴 High</span><span id="pct-h" style="color:var(--red)">—%</span></div>
-        <div class="prob-track"><div class="prob-fill pf-h" id="bar-h"></div></div>
-      </div>
-      <div class="prob-row">
-        <div class="prob-lbl-row"><span style="color:var(--orange)">🟡 Medium</span><span id="pct-m" style="color:var(--orange)">—%</span></div>
-        <div class="prob-track"><div class="prob-fill pf-m" id="bar-m"></div></div>
-      </div>
-      <div class="prob-row">
-        <div class="prob-lbl-row"><span style="color:var(--green)">🟢 Low</span><span id="pct-l" style="color:var(--green)">—%</span></div>
-        <div class="prob-track"><div class="prob-fill pf-l" id="bar-l"></div></div>
-      </div>
-
-      <!-- Score breakdown -->
-      <div class="score-row" id="score-row">
-        <div class="sc"><div class="sc-lbl">🌡️ Temp</div><div class="sc-val" style="color:var(--muted)">—/4</div></div>
-        <div class="sc"><div class="sc-lbl">🔥 Heat Idx</div><div class="sc-val" style="color:var(--muted)">—/3</div></div>
-        <div class="sc"><div class="sc-lbl">💧 Humidity</div><div class="sc-val" style="color:var(--muted)">—/2</div></div>
-        <div class="sc"><div class="sc-lbl">☀️ Hot Days</div><div class="sc-val" style="color:var(--muted)">—/2</div></div>
-        <div class="sc"><div class="sc-lbl">📅 Season</div><div class="sc-val" style="color:var(--muted)">—/1</div></div>
-      </div>
-
-      <div class="advisory" id="advisory">Configure the weather parameters and click Predict to see the heatwave risk assessment.</div>
-
       <!-- 7-Day Forecast inside result card -->
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+      <div>
         <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px">📅 7-Day Temperature & Risk Forecast</div>
         <div class="chart-wrap" style="height:220px">
           <canvas id="chart-forecast-result"></canvas>
@@ -949,18 +908,14 @@ const advisories={
 
 // ── Live slider updates ───────────────────────────────────────
 function updateDerived(){
-  const t=gv('sl-t'),h=gv('sl-h'),w=gv('sl-w');
-  const hi=+(t+h*0.33-w*0.07-4).toFixed(1), dew=+(t-(100-h)/5).toFixed(1);
-  $('dv-hi').textContent=hi+' °C';
-  $('dv-dp').textContent=dew+' °C';
-  $('dv-hi').style.color=hi>=42?'var(--red)':hi>=38?'var(--orange)':'var(--green)';
+  // UI elements removed
 }
 function bindSlider(id,valId,fmt){const el=$(id);const upd=()=>{$(valId).textContent=fmt(el.value);updateDerived()};el.addEventListener('input',upd);upd()}
 bindSlider('sl-t','v-t', v=>parseFloat(v).toFixed(1)+' °C');
 $('sl-m').addEventListener('change',updateDerived);
 
 // ── Run prediction ────────────────────────────────────────────
-let lastResult=null, lastCity='Manual';
+var lastResult=null, lastCity='Manual';
 
 async function runPrediction(){
   const btn=$('predict-btn');
@@ -977,27 +932,7 @@ async function runPrediction(){
 }
 
 function renderResult(res){
-  const banner=$('rr-banner');
-  banner.className='risk-result '+res.label.toLowerCase();
-  banner.style.opacity='1';
-  $('rr-icon').textContent=res.label==='High'?'🔴':res.label==='Medium'?'🟡':'🟢';
-  $('rr-main').textContent=res.label.toUpperCase()+' RISK';
-  $('rr-score').textContent=`composite score: ${res.total} / 12`;
-  // Bars
-  ['bar-h','bar-m','bar-l'].forEach(id=>{$(id).style.width='0'});
-  setTimeout(()=>{$('bar-h').style.width=res.probs.High+'%';$('bar-m').style.width=res.probs.Medium+'%';$('bar-l').style.width=res.probs.Low+'%'},60);
-  $('pct-h').textContent=res.probs.High+'%';
-  $('pct-m').textContent=res.probs.Medium+'%';
-  $('pct-l').textContent=res.probs.Low+'%';
-  // Score chips
-  const meta=[{k:'temp',max:4},{k:'heatindex',max:3},{k:'humidity',max:2},{k:'hotdays',max:2},{k:'seasonal',max:1}];
-  const labels=['🌡️ Temp','🔥 Heat Idx','💧 Humidity','☀️ Hot Days','📅 Season'];
-  $('score-row').innerHTML=meta.map((m,i)=>{
-    const v=res.scores[m.k];
-    const col=v===0?'var(--muted)':v===m.max?'var(--red)':'var(--amber)';
-    return `<div class="sc"><div class="sc-lbl">${labels[i]}</div><div class="sc-val" style="color:${col}">${v}/${m.max}</div></div>`;
-  }).join('');
-  $('advisory').innerHTML=advisories[res.label];
+  // UI elements removed; logic kept for modularity
 }
 
 function updateStatCards(t,h,res){
@@ -1365,7 +1300,6 @@ function checkAutoAlert(res, city){
     
     // Auto dispatch real alerts if fields are filled
     if ($('alert-email').value.trim()) sendAlert('email');
-    if ($('alert-phone').value.trim()) sendAlert('sms');
   }
 }
 

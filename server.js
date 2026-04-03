@@ -67,7 +67,7 @@ app.post('/api/alert/sms', async (req, res) => {
 // Export the Express API for Vercel Serverless
 module.exports = app;
 
-if (process.env.NODE_ENV !== 'production') {
+if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`HeatShield Alert backend running on http://localhost:${PORT}`);
