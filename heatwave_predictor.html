@@ -612,22 +612,10 @@ footer a{color:var(--accent);text-decoration:none}
         <div class="field-hd"><span class="field-lbl">🌡️ Temperature</span><span class="field-val" id="v-t">35.0 °C</span></div>
         <input type="range" id="sl-t" min="10" max="50" step="0.5" value="35"/>
       </div>
-      <div class="field">
-        <div class="field-hd"><span class="field-lbl">💧 Humidity</span><span class="field-val" id="v-h">40 %</span></div>
-        <input type="range" id="sl-h" min="0" max="100" step="1" value="40"/>
-      </div>
-      <div class="field">
-        <div class="field-hd"><span class="field-lbl">💨 Wind Speed</span><span class="field-val" id="v-w">10.0 km/h</span></div>
-        <input type="range" id="sl-w" min="0" max="60" step="0.5" value="10"/>
-      </div>
-      <div class="field">
-        <div class="field-hd"><span class="field-lbl">🔵 Pressure</span><span class="field-val" id="v-p">1005 mb</span></div>
-        <input type="range" id="sl-p" min="950" max="1050" step="1" value="1005"/>
-      </div>
-      <div class="field">
-        <div class="field-hd"><span class="field-lbl">🔥 Consecutive Hot Days</span><span class="field-val" id="v-hd">2 days</span></div>
-        <input type="range" id="sl-hd" min="0" max="15" step="1" value="2"/>
-      </div>
+      <input type="hidden" id="sl-h" value="40"/>
+      <input type="hidden" id="sl-w" value="10"/>
+      <input type="hidden" id="sl-p" value="1005"/>
+      <input type="hidden" id="sl-hd" value="2"/>
       <div class="field">
         <div class="field-lbl" style="margin-bottom:7px">📅 Month</div>
         <div class="sel-wrap">
@@ -687,6 +675,14 @@ footer a{color:var(--accent);text-decoration:none}
       </div>
 
       <div class="advisory" id="advisory">Configure the weather parameters and click Predict to see the heatwave risk assessment.</div>
+
+      <!-- 7-Day Forecast inside result card -->
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px">📅 7-Day Temperature & Risk Forecast</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="chart-forecast-result"></canvas>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -747,11 +743,9 @@ footer a{color:var(--accent);text-decoration:none}
       <p style="font-size:.78rem;color:var(--muted);margin-bottom:14px;line-height:1.7">Configure alerts for high risk conditions. Enter contact details to simulate SMS/email dispatch. Browser push notifications will also fire if enabled.</p>
       <div class="alert-controls">
         <input class="alert-input" id="alert-email" placeholder="📧 Email address" type="email"/>
-        <input class="alert-input" id="alert-phone" placeholder="📱 Phone number" type="tel"/>
       </div>
       <div class="alert-controls" style="margin-top:0">
         <button class="btn-alert" onclick="sendAlert('email')">📧 Send Email Alert</button>
-        <button class="btn-alert btn-sms" onclick="sendAlert('sms')">📱 Send SMS Alert</button>
         <button class="btn-alert" style="background:linear-gradient(135deg,#b388ff,#7c4dff);color:white" onclick="sendPushNotification()">🔔 Push Notify</button>
       </div>
       <div style="font-size:.68rem;color:var(--muted);margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid var(--border)">
@@ -981,6 +975,8 @@ async function runPrediction(){
   renderResult(res);
   updateStatCards(t,h,res);
   checkAutoAlert(res,lastCity);
+  // Update 7-day forecast in result card using current temp & month
+  update7DayForecast(t,h,m);
   btn.disabled=false; btn.innerHTML='🔮 PREDICT RISK';
 }
 
@@ -1093,6 +1089,136 @@ function updateForecastChart(city){
         x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5a6380',font:{size:10}}},
         y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5a6380',font:{size:10}},position:'left'},
         y1:{grid:{display:false},ticks:{color:'#40c4ff',font:{size:10}},position:'right'},
+      }
+    }
+  });
+}
+
+// ── 7-Day Forecast in Result Card (uses real API + model) ─────
+async function update7DayForecast(currentTemp, currentHum, month){
+  const city=$('city-input').value.trim();
+  const key='17c5a746c9e23283ea89e85d881c7ca0';
+  const today=new Date();
+  const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let dayLabels=[], temps=[], risks=[], riskColors=[];
+
+  // Day 0 = today
+  dayLabels.push('Today');
+  temps.push(currentTemp);
+  const todayRes=runModel(currentTemp,currentHum,gv('sl-w'),gv('sl-p'),gv('sl-hd'),month);
+  risks.push(todayRes.total);
+  riskColors.push(todayRes.label==='High'?'rgba(244,67,54,.85)':todayRes.label==='Medium'?'rgba(255,109,0,.85)':'rgba(0,230,118,.75)');
+
+  // Try fetching real 5-day forecast from API
+  let apiForecast=null;
+  if(city && key){
+    try{
+      const r=await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${key}&units=metric`);
+      const d=await r.json();
+      if(d.cod==='200' && d.list){
+        // Group by day, get daily max temp & avg humidity
+        const dailyMap={};
+        d.list.forEach(item=>{
+          const date=item.dt_txt.split(' ')[0];
+          if(!dailyMap[date])dailyMap[date]={temps:[],hums:[],winds:[],pressures:[]};
+          dailyMap[date].temps.push(item.main.temp);
+          dailyMap[date].hums.push(item.main.humidity);
+          dailyMap[date].winds.push(item.wind.speed*3.6);
+          dailyMap[date].pressures.push(item.main.pressure);
+        });
+        const todayStr=today.toISOString().split('T')[0];
+        const sortedDays=Object.keys(dailyMap).filter(d=>d>todayStr).sort().slice(0,6);
+        apiForecast=sortedDays.map(dateStr=>{
+          const dd=dailyMap[dateStr];
+          return{
+            date:dateStr,
+            maxTemp:+Math.max(...dd.temps).toFixed(1),
+            avgHum:Math.round(dd.hums.reduce((a,b)=>a+b,0)/dd.hums.length),
+            avgWind:+(dd.winds.reduce((a,b)=>a+b,0)/dd.winds.length).toFixed(1),
+            avgPressure:Math.round(dd.pressures.reduce((a,b)=>a+b,0)/dd.pressures.length)
+          };
+        });
+      }
+    }catch(e){console.warn('Forecast API failed, using simulated data',e)}
+  }
+
+  // Fill days 1-6
+  for(let i=1;i<=6;i++){
+    const futureDate=new Date(today);
+    futureDate.setDate(today.getDate()+i);
+    const dayLabel=i<=2?(['Tomorrow','Day 3'][i-1]||dayNames[futureDate.getDay()]):dayNames[futureDate.getDay()];
+    dayLabels.push(i===1?'Tomorrow':dayNames[futureDate.getDay()]);
+
+    let t,h,w,p;
+    if(apiForecast && apiForecast[i-1]){
+      t=apiForecast[i-1].maxTemp;
+      h=apiForecast[i-1].avgHum;
+      w=apiForecast[i-1].avgWind;
+      p=apiForecast[i-1].avgPressure;
+    } else {
+      // Simulated: slight daily variation based on month seasonality
+      const seasonalBias=[4,5,6].includes(month)?1.5:[3,7,8,9].includes(month)?0:-2;
+      t=+(currentTemp + (Math.random()-0.4)*3 + seasonalBias*0.3 + Math.sin(i*0.8)*0.5).toFixed(1);
+      h=Math.max(10,Math.min(95,Math.round(currentHum+(Math.random()-0.5)*15)));
+      w=+(gv('sl-w')+(Math.random()-0.5)*6).toFixed(1);
+      p=Math.round(gv('sl-p')+(Math.random()-0.5)*8);
+    }
+    temps.push(t);
+    const futureMonth=futureDate.getMonth()+1;
+    const dayRes=runModel(t,h,Math.max(0,w),p,Math.max(0,gv('sl-hd')),futureMonth);
+    risks.push(dayRes.total);
+    riskColors.push(dayRes.label==='High'?'rgba(244,67,54,.85)':dayRes.label==='Medium'?'rgba(255,109,0,.85)':'rgba(0,230,118,.75)');
+  }
+
+  mkChart('chart-forecast-result',{
+    type:'bar',
+    data:{
+      labels:dayLabels,
+      datasets:[
+        {
+          label:'Max Temp (°C)',
+          data:temps,
+          backgroundColor:riskColors,
+          borderRadius:8,
+          yAxisID:'y',
+          order:2
+        },
+        {
+          label:'Risk Score (/12)',
+          data:risks,
+          type:'line',
+          borderColor:'#ff5722',
+          backgroundColor:'rgba(255,87,34,.1)',
+          tension:.4,
+          fill:true,
+          pointRadius:5,
+          pointBackgroundColor:riskColors,
+          pointBorderColor:'#fff',
+          pointBorderWidth:1.5,
+          yAxisID:'y1',
+          order:1
+        }
+      ]
+    },
+    options:{
+      ...chartDefaults,
+      plugins:{
+        legend:{labels:{color:'#5a6380',font:{size:10,family:'Inter'}}},
+        tooltip:{
+          callbacks:{
+            afterBody:function(ctx){
+              const idx=ctx[0].dataIndex;
+              const r=risks[idx];
+              const lvl=r>=7?'HIGH':r>=4?'MEDIUM':'LOW';
+              return '⚠️ Risk: '+lvl+' ('+r+'/12)';
+            }
+          }
+        }
+      },
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#7a8098',font:{size:10,weight:'600'}}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5a6380',font:{size:10}},position:'left',title:{display:true,text:'Temp °C',color:'#5a6380',font:{size:10}}},
+        y1:{grid:{display:false},ticks:{color:'#ff5722',font:{size:10}},position:'right',min:0,max:12,title:{display:true,text:'Risk Score',color:'#ff5722',font:{size:10}}},
       }
     }
   });
