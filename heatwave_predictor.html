@@ -1201,22 +1201,70 @@ function initDonutChart(){
   });
 }
 
-function initCityTable(){
+async function initCityTable(){
   const cities=Object.keys(demoData);
   const tbody=$('city-tbody');
-  tbody.innerHTML=cities.map(city=>{
-    const d=demoData[city];
-    const res=runModel(d.t,d.h,d.w,d.p,d.hd,d.m);
-    const pill=res.label==='High'?'rp-h':res.label==='Medium'?'rp-m':'rp-l';
-    return `<tr>
-      <td><strong>${city}</strong></td>
-      <td style="font-family:'JetBrains Mono',monospace;color:${d.t>=37?'var(--red)':d.t>=33?'var(--orange)':'var(--txt)'}">${d.t}°C</td>
-      <td style="color:var(--blue)">${d.h}%</td>
-      <td style="font-family:'JetBrains Mono',monospace;color:var(--orange)">${res.hi}°C</td>
-      <td><span class="risk-pill ${pill}">${res.label}</span></td>
-      <td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${res.total}/12</td>
-    </tr>`;
-  }).join('');
+  const key='17c5a746c9e23283ea89e85d881c7ca0';
+  
+  // Show loading state initially
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;">Fetching live data for ${cities.length} cities...</td></tr>`;
+  
+  try {
+    const promises = cities.map(city => fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${key}&units=metric`).then(r => r.json()));
+    const results = await Promise.all(promises);
+    
+    tbody.innerHTML = results.map((d, index) => {
+      const city = cities[index];
+      // Fallback if API fails for a specific city
+      if(d.cod !== 200) {
+        const fb = demoData[city];
+        const res = runModel(fb.t, fb.h, fb.w, fb.p, fb.hd, fb.m);
+        const pill = res.label==='High'?'rp-h':res.label==='Medium'?'rp-m':'rp-l';
+        return `<tr>
+          <td><strong>${city}</strong> <span style="font-size:0.6rem;color:var(--muted);margin-left:4px">offline</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;color:${fb.t>=37?'var(--red)':fb.t>=33?'var(--orange)':'var(--txt)'}">${fb.t}°C</td>
+          <td style="color:var(--blue)">${fb.h}%</td>
+          <td style="font-family:'JetBrains Mono',monospace;color:var(--orange)">${res.hi}°C</td>
+          <td><span class="risk-pill ${pill}">${res.label}</span></td>
+          <td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${res.total}/12</td>
+        </tr>`;
+      }
+      
+      const t = +(d.main.temp).toFixed(1);
+      const h = d.main.humidity;
+      const w = +(d.wind.speed * 3.6).toFixed(1);
+      const p = Math.round(d.main.pressure);
+      const m = new Date().getMonth() + 1;
+      const hd = demoData[city].hd; // Conserve hardcoded hot day streak for model stability
+      const res = runModel(t, h, w, p, hd, m);
+      const pill = res.label==='High'?'rp-h':res.label==='Medium'?'rp-m':'rp-l';
+      
+      return `<tr>
+        <td><strong>${city}</strong> <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-left:4px;box-shadow:0 0 4px var(--green)" title="Live Data"></span></td>
+        <td style="font-family:'JetBrains Mono',monospace;color:${t>=37?'var(--red)':t>=33?'var(--orange)':'var(--txt)'}">${t}°C</td>
+        <td style="color:var(--blue)">${h}%</td>
+        <td style="font-family:'JetBrains Mono',monospace;color:var(--orange)">${res.hi}°C</td>
+        <td><span class="risk-pill ${pill}">${res.label}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${res.total}/12</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    // Ultimate fallback if fetch entirely rejects
+    console.error("City table live fetch failed:", e);
+    tbody.innerHTML = cities.map(city=>{
+      const d=demoData[city];
+      const res=runModel(d.t,d.h,d.w,d.p,d.hd,d.m);
+      const pill=res.label==='High'?'rp-h':res.label==='Medium'?'rp-m':'rp-l';
+      return `<tr>
+        <td><strong>${city}</strong> <span style="font-size:0.6rem;color:var(--muted);margin-left:4px">offline</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;color:${d.t>=37?'var(--red)':d.t>=33?'var(--orange)':'var(--txt)'}">${d.t}°C</td>
+        <td style="color:var(--blue)">${d.h}%</td>
+        <td style="font-family:'JetBrains Mono',monospace;color:var(--orange)">${res.hi}°C</td>
+        <td><span class="risk-pill ${pill}">${res.label}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;color:var(--muted)">${res.total}/12</td>
+      </tr>`;
+    }).join('');
+  }
 }
 
 // ── Alert System ──────────────────────────────────────────────
