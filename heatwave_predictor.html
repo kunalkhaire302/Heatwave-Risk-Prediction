@@ -709,11 +709,13 @@ footer a{color:var(--accent);text-decoration:none}
       <div class="card-hd"><div class="dot" style="background:var(--green)"></div>🔔 Send Alert / Notification</div>
       <p style="font-size:.78rem;color:var(--muted);margin-bottom:14px;line-height:1.7">Configure alerts for high risk conditions. Enter contact details to simulate SMS/email dispatch. Browser push notifications will also fire if enabled.</p>
       <div class="alert-controls">
-        <input class="alert-input" id="alert-email" placeholder="📧 Email address" type="email"/>
+        <input class="alert-input" style="flex:1" id="alert-email" placeholder="📧 Email address" type="email"/>
+        <input class="alert-input" style="flex:1" id="alert-phone" placeholder="📱 Phone (+1234...)" type="tel"/>
       </div>
-      <div class="alert-controls" style="margin-top:0">
-        <button class="btn-alert" onclick="sendAlert('email')">📧 Send Email Alert</button>
-        <button class="btn-alert" style="background:linear-gradient(135deg,#b388ff,#7c4dff);color:white" onclick="sendPushNotification()">🔔 Push Notify</button>
+      <div class="alert-controls" style="margin-top:0; flex-wrap:wrap">
+        <button class="btn-alert" style="flex:1" onclick="sendAlert('email')">📧 Send Email Alert</button>
+        <button class="btn-alert btn-sms" style="flex:1; background:linear-gradient(135deg,#00b0ff,#0081cb);color:white" onclick="sendAlert('sms')">📱 SMS Alert</button>
+        <button class="btn-alert" style="flex:1; background:linear-gradient(135deg,#b388ff,#7c4dff);color:white" onclick="sendPushNotification()">🔔 Push Notify</button>
       </div>
       <div style="font-size:.68rem;color:var(--muted);margin-bottom:12px;padding:8px 12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid var(--border)">
         ✅ Active mode: Alerts are sent through the local Node.js backend. Make sure the backend server (server.js) is running on port 3000.

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend'); // Replaced Nodemailer due to Render SMTP blocking
 const twilio = require('twilio');
 
 const app = express();
@@ -18,14 +18,8 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'heatwave_predictor.html'));
 });
 
-// Set up Nodemailer transporter
-const transporter = nodemailer.createTransport({
-  service: 'gmail', // or other service
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD
-  }
-});
+// Set up Resend client
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Set up Twilio client
 let twilioClient;
@@ -36,18 +30,21 @@ if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
 app.post('/api/alert/email', async (req, res) => {
   const { to, subject, text } = req.body;
   
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
-    return res.status(500).json({ error: 'Email service is not configured on the server. Please add credentials to .env.' });
+  if (!process.env.RESEND_API_KEY) {
+    return res.status(500).json({ error: 'Email service is not configured on the server. Please add RESEND_API_KEY credentials.' });
   }
 
   try {
-    await transporter.sendMail({
-      from: `"HeatShield AI Alert" <${process.env.EMAIL_USER}>`,
+    const response = await resend.emails.send({
+      from: 'HeatShield AI Alert <onboarding@resend.dev>', // Free tier Resend requires onboarding domain
       to,
       subject,
       text
     });
-    res.json({ success: true, message: 'Email sent successfully.' });
+    
+    if (response.error) throw new Error(response.error.message);
+    
+    res.json({ success: true, message: 'Email sent successfully via Resend.' });
   } catch (error) {
     console.error('Email error:', error);
     res.status(500).json({ error: error.message || 'Failed to send email.' });
