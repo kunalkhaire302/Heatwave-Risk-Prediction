@@ -957,10 +957,6 @@ function updateDerived(){
 }
 function bindSlider(id,valId,fmt){const el=$(id);const upd=()=>{$(valId).textContent=fmt(el.value);updateDerived()};el.addEventListener('input',upd);upd()}
 bindSlider('sl-t','v-t', v=>parseFloat(v).toFixed(1)+' °C');
-bindSlider('sl-h','v-h', v=>parseInt(v)+' %');
-bindSlider('sl-w','v-w', v=>parseFloat(v).toFixed(1)+' km/h');
-bindSlider('sl-p','v-p', v=>parseInt(v)+' mb');
-bindSlider('sl-hd','v-hd',v=>parseInt(v)+' days');
 $('sl-m').addEventListener('change',updateDerived);
 
 // ── Run prediction ────────────────────────────────────────────
@@ -1041,9 +1037,9 @@ async function fetchWeather(){
     if(d.cod!==200)throw new Error(d.message||'API error');
     const t=+(d.main.temp).toFixed(1), h=d.main.humidity, w=+(d.wind.speed*3.6).toFixed(1), p=Math.round(d.main.pressure);
     $('sl-t').value=t; $('v-t').textContent=t+' °C';
-    $('sl-h').value=h; $('v-h').textContent=h+' %';
-    $('sl-w').value=Math.min(60,w); $('v-w').textContent=Math.min(60,w)+' km/h';
-    $('sl-p').value=Math.max(950,Math.min(1050,p)); $('v-p').textContent=p+' mb';
+    $('sl-h').value=h;
+    $('sl-w').value=Math.min(60,w);
+    $('sl-p').value=Math.max(950,Math.min(1050,p));
     $('s-coords').textContent=`${d.coord.lat.toFixed(2)}°N, ${d.coord.lon.toFixed(2)}°E`;
     const now=new Date(); $('sl-m').value=now.getMonth()+1;
     lastCity=city; updateDerived();
